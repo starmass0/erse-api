@@ -10,9 +10,12 @@ from services.ingestion import (
     ingest_nis2_batch,
     ingest_aiact_batch,
 )
+from services.retrieval import get_qdrant_client
+from config import get_settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 @router.post("/ingest", response_model=IngestResponse)
@@ -112,3 +115,30 @@ async def ingest_aiact_articles(background_tasks: BackgroundTasks):
         message="Started background ingestion of AI Act",
         chunks_created=0,
     )
+
+
+@router.delete("/ingest/{regulation}")
+async def delete_regulation_data(regulation: str):
+    """Delete all data for a specific regulation."""
+    from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+    try:
+        client = get_qdrant_client()
+
+        # Delete points matching the regulation
+        client.delete(
+            collection_name=settings.qdrant_collection,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="regulation",
+                        match=MatchValue(value=regulation.lower())
+                    )
+                ]
+            ),
+        )
+
+        return {"success": True, "message": f"Deleted all {regulation} data"}
+    except Exception as e:
+        logger.error(f"Delete error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
