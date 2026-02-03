@@ -18,7 +18,7 @@ async def ask_question(request: AskRequest):
     """
 
     # Check if AI Act is selected (enables AI synthesis mode)
-    use_ai_synthesis = "ai_act" in [r.lower() for r in request.regulations]
+    use_ai_synthesis = "aiact" in [r.lower() for r in request.regulations]
 
     # Search for relevant chunks
     chunks = search_regulations(
