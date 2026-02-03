@@ -86,17 +86,16 @@ def search_regulations(
 
     # Build filter if regulations specified
     search_filter = None
-    if regulations and len(regulations) > 0:
-        # Filter by regulation field
-        conditions = [
-            FieldCondition(key="regulation", match=MatchValue(value=reg.lower()))
-            for reg in regulations
-        ]
-        if len(conditions) == 1:
-            search_filter = Filter(must=conditions)
-        else:
-            # Multiple regulations - use should (OR) logic
-            search_filter = Filter(should=conditions)
+    # TODO: Add regulation filtering later - for now search all
+    # if regulations and len(regulations) > 0:
+    #     conditions = [
+    #         FieldCondition(key="regulation", match=MatchValue(value=reg.lower()))
+    #         for reg in regulations
+    #     ]
+    #     if len(conditions) == 1:
+    #         search_filter = Filter(must=conditions)
+    #     else:
+    #         search_filter = Filter(should=conditions)
 
     try:
         results = client.query_points(
