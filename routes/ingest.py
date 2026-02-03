@@ -2,7 +2,14 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 import logging
 
 from models import IngestRequest, IngestResponse
-from services.ingestion import ingest_document, ingest_from_url, ingest_gdpr_batch
+from services.ingestion import (
+    ingest_document,
+    ingest_from_url,
+    ingest_gdpr_batch,
+    ingest_dsa_batch,
+    ingest_nis2_batch,
+    ingest_aiact_batch,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -64,5 +71,44 @@ async def ingest_gdpr_articles(
     return IngestResponse(
         success=True,
         message=f"Started background ingestion of {len(articles)} GDPR articles",
+        chunks_created=0,
+    )
+
+
+@router.post("/ingest/dsa-batch", response_model=IngestResponse)
+async def ingest_dsa_articles(background_tasks: BackgroundTasks):
+    """Ingest Digital Services Act (DSA) in the background."""
+
+    background_tasks.add_task(ingest_dsa_batch)
+
+    return IngestResponse(
+        success=True,
+        message="Started background ingestion of DSA",
+        chunks_created=0,
+    )
+
+
+@router.post("/ingest/nis2-batch", response_model=IngestResponse)
+async def ingest_nis2_articles(background_tasks: BackgroundTasks):
+    """Ingest NIS2 Directive in the background."""
+
+    background_tasks.add_task(ingest_nis2_batch)
+
+    return IngestResponse(
+        success=True,
+        message="Started background ingestion of NIS2 Directive",
+        chunks_created=0,
+    )
+
+
+@router.post("/ingest/aiact-batch", response_model=IngestResponse)
+async def ingest_aiact_articles(background_tasks: BackgroundTasks):
+    """Ingest AI Act in the background."""
+
+    background_tasks.add_task(ingest_aiact_batch)
+
+    return IngestResponse(
+        success=True,
+        message="Started background ingestion of AI Act",
         chunks_created=0,
     )

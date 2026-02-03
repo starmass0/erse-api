@@ -205,3 +205,130 @@ def ingest_gdpr_batch(articles: list[int] = None):
             logger.error(f"Failed to ingest GDPR Article {art_no}: {e}")
 
     return total_chunks
+
+
+def scrape_eurlex_article(url: str, regulation: str) -> dict:
+    """Scrape an article from EUR-Lex or similar sources."""
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (compatible; ERSE/2.0)'}
+        response = requests.get(url, timeout=15, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Extract title
+        title = ""
+        title_elem = soup.find('h1') or soup.find('title')
+        if title_elem:
+            title = title_elem.get_text(strip=True)
+
+        # Extract main content
+        content = ""
+        # Try various content containers
+        content_selectors = [
+            'div.eli-main-body',
+            'div#TexteOnly',
+            'div.texte',
+            'article',
+            'main',
+            'div.content'
+        ]
+        for selector in content_selectors:
+            content_elem = soup.select_one(selector)
+            if content_elem:
+                for tag in content_elem.find_all(['script', 'style', 'nav', 'header', 'footer']):
+                    tag.decompose()
+                content = content_elem.get_text(separator='\n', strip=True)
+                break
+
+        if not content:
+            # Fallback: get body content
+            body = soup.find('body')
+            if body:
+                for tag in body.find_all(['script', 'style', 'nav', 'header', 'footer']):
+                    tag.decompose()
+                content = body.get_text(separator='\n', strip=True)
+
+        return {
+            "title": title,
+            "content": content,
+            "url": url,
+        }
+    except Exception as e:
+        logger.error(f"Error scraping {url}: {e}")
+        return {}
+
+
+def ingest_dsa_batch():
+    """Ingest Digital Services Act articles."""
+    # DSA key articles and sections
+    dsa_sources = [
+        ("https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32022R2065", "Digital Services Act - Full Text"),
+    ]
+
+    total_chunks = 0
+    for url, title in dsa_sources:
+        try:
+            data = scrape_eurlex_article(url, "dsa")
+            if data and data.get("content"):
+                chunks = ingest_document(
+                    regulation="dsa",
+                    content=data["content"],
+                    title=title,
+                    url=url,
+                )
+                total_chunks += chunks
+                logger.info(f"Ingested DSA: {chunks} chunks")
+        except Exception as e:
+            logger.error(f"Failed to ingest DSA: {e}")
+
+    return total_chunks
+
+
+def ingest_nis2_batch():
+    """Ingest NIS2 Directive articles."""
+    nis2_sources = [
+        ("https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32022L2555", "NIS2 Directive - Full Text"),
+    ]
+
+    total_chunks = 0
+    for url, title in nis2_sources:
+        try:
+            data = scrape_eurlex_article(url, "nis2")
+            if data and data.get("content"):
+                chunks = ingest_document(
+                    regulation="nis2",
+                    content=data["content"],
+                    title=title,
+                    url=url,
+                )
+                total_chunks += chunks
+                logger.info(f"Ingested NIS2: {chunks} chunks")
+        except Exception as e:
+            logger.error(f"Failed to ingest NIS2: {e}")
+
+    return total_chunks
+
+
+def ingest_aiact_batch():
+    """Ingest AI Act articles."""
+    aiact_sources = [
+        ("https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:L_202401689", "AI Act - Full Text"),
+    ]
+
+    total_chunks = 0
+    for url, title in aiact_sources:
+        try:
+            data = scrape_eurlex_article(url, "aiact")
+            if data and data.get("content"):
+                chunks = ingest_document(
+                    regulation="aiact",
+                    content=data["content"],
+                    title=title,
+                    url=url,
+                )
+                total_chunks += chunks
+                logger.info(f"Ingested AI Act: {chunks} chunks")
+        except Exception as e:
+            logger.error(f"Failed to ingest AI Act: {e}")
+
+    return total_chunks
