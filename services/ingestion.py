@@ -260,104 +260,123 @@ def scrape_eurlex_article(url: str, regulation: str) -> dict:
 
 def ingest_dsa_batch():
     """Ingest Digital Services Act articles."""
-    # Use TXT version which is easier to scrape
-    txt_url = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2065"
+    dsa_urls = [
+        "https://digital-strategy.ec.europa.eu/en/policies/dsa-overview",
+        "https://digital-strategy.ec.europa.eu/en/policies/digital-services-act-package",
+    ]
 
     total_chunks = 0
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(txt_url, timeout=30, headers=headers)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-        # Find the main text content
-        content_div = soup.find('div', {'id': 'TexteOnly'}) or soup.find('div', class_='texte')
-        if content_div:
-            content = content_div.get_text(separator='\n', strip=True)
-        else:
-            # Fallback - get all text
-            content = soup.get_text(separator='\n', strip=True)
+    for url in dsa_urls:
+        try:
+            response = requests.get(url, timeout=30, headers=headers)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-        if content and len(content) > 1000:
-            chunks = ingest_document(
-                regulation="dsa",
-                content=content,
-                title="Digital Services Act (DSA) - Regulation (EU) 2022/2065",
-                url=txt_url,
-            )
-            total_chunks += chunks
-            logger.info(f"Ingested DSA: {chunks} chunks")
-        else:
-            logger.warning(f"DSA content too short or empty: {len(content) if content else 0} chars")
-    except Exception as e:
-        logger.error(f"Failed to ingest DSA: {e}")
+            # Remove navigation and footer
+            for tag in soup.find_all(['nav', 'footer', 'header', 'script', 'style']):
+                tag.decompose()
+
+            # Find main content
+            main = soup.find('main') or soup.find('article') or soup.find('div', class_='content')
+            if main:
+                content = main.get_text(separator='\n', strip=True)
+            else:
+                content = soup.get_text(separator='\n', strip=True)
+
+            if content and len(content) > 500:
+                chunks = ingest_document(
+                    regulation="dsa",
+                    content=content,
+                    title="Digital Services Act (DSA) - Regulation (EU) 2022/2065",
+                    url=url,
+                )
+                total_chunks += chunks
+                logger.info(f"Ingested DSA from {url}: {chunks} chunks")
+        except Exception as e:
+            logger.error(f"Failed to ingest DSA from {url}: {e}")
 
     return total_chunks
 
 
 def ingest_nis2_batch():
     """Ingest NIS2 Directive articles."""
-    txt_url = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022L2555"
+    nis2_urls = [
+        "https://digital-strategy.ec.europa.eu/en/policies/nis2-directive",
+        "https://www.enisa.europa.eu/topics/cybersecurity-policy/nis-directive-new",
+    ]
 
     total_chunks = 0
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(txt_url, timeout=30, headers=headers)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-        content_div = soup.find('div', {'id': 'TexteOnly'}) or soup.find('div', class_='texte')
-        if content_div:
-            content = content_div.get_text(separator='\n', strip=True)
-        else:
-            content = soup.get_text(separator='\n', strip=True)
+    for url in nis2_urls:
+        try:
+            response = requests.get(url, timeout=30, headers=headers)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-        if content and len(content) > 1000:
-            chunks = ingest_document(
-                regulation="nis2",
-                content=content,
-                title="NIS2 Directive - Directive (EU) 2022/2555",
-                url=txt_url,
-            )
-            total_chunks += chunks
-            logger.info(f"Ingested NIS2: {chunks} chunks")
-        else:
-            logger.warning(f"NIS2 content too short or empty: {len(content) if content else 0} chars")
-    except Exception as e:
-        logger.error(f"Failed to ingest NIS2: {e}")
+            for tag in soup.find_all(['nav', 'footer', 'header', 'script', 'style']):
+                tag.decompose()
+
+            main = soup.find('main') or soup.find('article') or soup.find('div', class_='content')
+            if main:
+                content = main.get_text(separator='\n', strip=True)
+            else:
+                content = soup.get_text(separator='\n', strip=True)
+
+            if content and len(content) > 500:
+                chunks = ingest_document(
+                    regulation="nis2",
+                    content=content,
+                    title="NIS2 Directive - Directive (EU) 2022/2555",
+                    url=url,
+                )
+                total_chunks += chunks
+                logger.info(f"Ingested NIS2 from {url}: {chunks} chunks")
+        except Exception as e:
+            logger.error(f"Failed to ingest NIS2 from {url}: {e}")
 
     return total_chunks
 
 
 def ingest_aiact_batch():
-    """Ingest AI Act articles."""
-    txt_url = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689"
+    """Ingest AI Act articles from artificialintelligenceact.eu."""
+    # This site has the full AI Act text in accessible format
+    aiact_urls = [
+        "https://artificialintelligenceact.eu/the-act/",
+        "https://artificialintelligenceact.eu/high-level-summary/",
+    ]
 
     total_chunks = 0
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(txt_url, timeout=30, headers=headers)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-        content_div = soup.find('div', {'id': 'TexteOnly'}) or soup.find('div', class_='texte')
-        if content_div:
-            content = content_div.get_text(separator='\n', strip=True)
-        else:
-            content = soup.get_text(separator='\n', strip=True)
+    for url in aiact_urls:
+        try:
+            response = requests.get(url, timeout=30, headers=headers)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-        if content and len(content) > 1000:
-            chunks = ingest_document(
-                regulation="aiact",
-                content=content,
-                title="AI Act - Regulation (EU) 2024/1689",
-                url=txt_url,
-            )
-            total_chunks += chunks
-            logger.info(f"Ingested AI Act: {chunks} chunks")
-        else:
-            logger.warning(f"AI Act content too short or empty: {len(content) if content else 0} chars")
-    except Exception as e:
-        logger.error(f"Failed to ingest AI Act: {e}")
+            for tag in soup.find_all(['nav', 'footer', 'header', 'script', 'style', 'aside']):
+                tag.decompose()
+
+            # Find main content
+            main = soup.find('main') or soup.find('article') or soup.find('div', class_='entry-content')
+            if main:
+                content = main.get_text(separator='\n', strip=True)
+            else:
+                content = soup.get_text(separator='\n', strip=True)
+
+            if content and len(content) > 500:
+                chunks = ingest_document(
+                    regulation="aiact",
+                    content=content,
+                    title="AI Act - Regulation (EU) 2024/1689",
+                    url=url,
+                )
+                total_chunks += chunks
+                logger.info(f"Ingested AI Act from {url}: {chunks} chunks")
+        except Exception as e:
+            logger.error(f"Failed to ingest AI Act from {url}: {e}")
 
     return total_chunks
