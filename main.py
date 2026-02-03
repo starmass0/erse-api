@@ -4,7 +4,6 @@ import logging
 
 from config import get_settings
 from routes import health, ask, ingest
-from services.retrieval import ensure_collection_exists
 
 # Configure logging
 logging.basicConfig(
@@ -43,15 +42,8 @@ app.include_router(ingest.router, tags=["Ingest"])
 async def startup_event():
     """Initialize services on startup."""
     logger.info(f"Starting ERSE API v{settings.app_version}")
-
-    # Ensure Qdrant collection exists
-    try:
-        ensure_collection_exists()
-        logger.info("Qdrant collection ready")
-    except Exception as e:
-        logger.warning(f"Qdrant setup warning: {e}")
-
     logger.info("ERSE API started successfully")
+    # Qdrant and embedding model will load lazily on first request
 
 
 @app.get("/")
