@@ -14,9 +14,9 @@ class Settings(BaseSettings):
     # Optional: OpenAI (for production)
     openai_api_key: str = ""
 
-    # Embedding settings
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"  # Free, local
-    embedding_dim: int = 384
+    # Embedding settings (OpenAI)
+    embedding_model: str = "text-embedding-3-small"  # Fast, high quality
+    embedding_dim: int = 1536
 
     # LLM settings
     llm_provider: str = "openai"  # "openai" or "groq"
