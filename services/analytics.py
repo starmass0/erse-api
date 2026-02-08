@@ -1,26 +1,62 @@
-"""Simple analytics service for ERSE."""
+"""Analytics service for ERSE - stores data in Qdrant Cloud for persistence."""
 import json
-import os
-from datetime import datetime
-from typing import Optional
-from collections import Counter
 import logging
+from datetime import datetime, timedelta
+from typing import Optional
 
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct, VectorParams, Distance
+
+from config import get_settings
+
+settings = get_settings()
 logger = logging.getLogger(__name__)
 
-# File-based storage for persistence across restarts
-ANALYTICS_FILE = "/tmp/erse_analytics.json"
+# Analytics collection name
+ANALYTICS_COLLECTION = "erse_analytics"
+ANALYTICS_POINT_ID = 1  # Single point to store all analytics
+
+_client: Optional[QdrantClient] = None
 
 
-def _load_analytics() -> dict:
-    """Load analytics from file."""
-    if os.path.exists(ANALYTICS_FILE):
-        try:
-            with open(ANALYTICS_FILE, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Error loading analytics: {e}")
+def _get_client() -> QdrantClient:
+    """Get or create Qdrant client."""
+    global _client
+    if _client is None:
+        if settings.qdrant_url and settings.qdrant_api_key:
+            _client = QdrantClient(
+                url=settings.qdrant_url,
+                api_key=settings.qdrant_api_key,
+            )
+        else:
+            _client = QdrantClient(":memory:")
+            logger.warning("Using in-memory Qdrant for analytics")
+    return _client
 
+
+def _ensure_analytics_collection():
+    """Create analytics collection if it doesn't exist."""
+    client = _get_client()
+    try:
+        collections = client.get_collections().collections
+        collection_names = [c.name for c in collections]
+
+        if ANALYTICS_COLLECTION not in collection_names:
+            # Create collection with minimal vector (we only use payload)
+            client.create_collection(
+                collection_name=ANALYTICS_COLLECTION,
+                vectors_config=VectorParams(size=4, distance=Distance.COSINE),
+            )
+            logger.info(f"Created analytics collection: {ANALYTICS_COLLECTION}")
+
+            # Initialize with empty analytics
+            _save_analytics(_get_default_analytics())
+    except Exception as e:
+        logger.error(f"Error ensuring analytics collection: {e}")
+
+
+def _get_default_analytics() -> dict:
+    """Return default analytics structure."""
     return {
         "total_queries": 0,
         "queries_by_regulation": {},
@@ -32,13 +68,52 @@ def _load_analytics() -> dict:
     }
 
 
-def _save_analytics(data: dict):
-    """Save analytics to file."""
+def _load_analytics() -> dict:
+    """Load analytics from Qdrant."""
     try:
-        with open(ANALYTICS_FILE, "w") as f:
-            json.dump(data, f, indent=2)
+        _ensure_analytics_collection()
+        client = _get_client()
+
+        # Try to get the analytics point
+        results = client.retrieve(
+            collection_name=ANALYTICS_COLLECTION,
+            ids=[ANALYTICS_POINT_ID],
+            with_payload=True,
+        )
+
+        if results and len(results) > 0:
+            payload = results[0].payload or {}
+            # Merge with defaults to handle missing fields
+            defaults = _get_default_analytics()
+            defaults.update(payload)
+            return defaults
+
+        return _get_default_analytics()
+
     except Exception as e:
-        logger.error(f"Error saving analytics: {e}")
+        logger.error(f"Error loading analytics from Qdrant: {e}")
+        return _get_default_analytics()
+
+
+def _save_analytics(data: dict):
+    """Save analytics to Qdrant."""
+    try:
+        _ensure_analytics_collection()
+        client = _get_client()
+
+        # Upsert the analytics point (dummy vector, real payload)
+        client.upsert(
+            collection_name=ANALYTICS_COLLECTION,
+            points=[
+                PointStruct(
+                    id=ANALYTICS_POINT_ID,
+                    vector=[0.0, 0.0, 0.0, 0.0],  # Dummy vector
+                    payload=data,
+                )
+            ],
+        )
+    except Exception as e:
+        logger.error(f"Error saving analytics to Qdrant: {e}")
 
 
 def track_query(
@@ -128,7 +203,6 @@ def get_analytics_summary() -> dict:
     queries_today = by_date.get(today, 0)
 
     # Queries this week (last 7 days)
-    from datetime import timedelta
     queries_week = 0
     for i in range(7):
         day = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
