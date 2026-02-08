@@ -4,6 +4,7 @@ import logging
 from models import AskRequest, AskResponse, Citation
 from services.retrieval import search_regulations
 from services.synthesis import synthesize_answer
+from services.analytics import track_query, get_analytics_summary
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -79,9 +80,23 @@ async def ask_question(request: AskRequest):
         for c in citations
     ]
 
+    # Track analytics
+    track_query(
+        question=request.question,
+        regulations=request.regulations,
+        language=request.language,
+        confidence=confidence,
+    )
+
     return AskResponse(
         answer=answer,
         citations=citations,
         confidence=confidence,
         sources=sources,
     )
+
+
+@router.get("/analytics")
+async def get_analytics():
+    """Get usage analytics summary."""
+    return get_analytics_summary()
