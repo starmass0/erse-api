@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from config import get_settings
-from routes import health, ask, ingest
+from routes import health, ask
+# from routes import ingest  # Disabled for security - not needed in production
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +36,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(ask.router, tags=["Ask"])
-app.include_router(ingest.router, tags=["Ingest"])
+# app.include_router(ingest.router, tags=["Ingest"])  # Disabled for security
 
 
 @app.on_event("startup")
