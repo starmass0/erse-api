@@ -27,6 +27,8 @@ def _load_analytics() -> dict:
         "queries_by_language": {},
         "queries_by_date": {},
         "recent_questions": [],
+        "feedback_positive": 0,
+        "feedback_negative": 0,
     }
 
 
@@ -86,6 +88,28 @@ def track_query(
         logger.error(f"Error tracking query: {e}")
 
 
+def track_feedback(feedback_type: str):
+    """Track user feedback (positive/negative)."""
+    try:
+        data = _load_analytics()
+
+        # Initialize feedback counters if not present
+        if "feedback_positive" not in data:
+            data["feedback_positive"] = 0
+        if "feedback_negative" not in data:
+            data["feedback_negative"] = 0
+
+        if feedback_type == "yes":
+            data["feedback_positive"] += 1
+        elif feedback_type == "no":
+            data["feedback_negative"] += 1
+
+        _save_analytics(data)
+
+    except Exception as e:
+        logger.error(f"Error tracking feedback: {e}")
+
+
 def get_analytics_summary() -> dict:
     """Get analytics summary."""
     data = _load_analytics()
@@ -110,6 +134,12 @@ def get_analytics_summary() -> dict:
         day = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
         queries_week += by_date.get(day, 0)
 
+    # Feedback stats
+    feedback_positive = data.get("feedback_positive", 0)
+    feedback_negative = data.get("feedback_negative", 0)
+    total_feedback = feedback_positive + feedback_negative
+    satisfaction_rate = round((feedback_positive / total_feedback * 100), 1) if total_feedback > 0 else 0
+
     return {
         "total_queries": total,
         "queries_today": queries_today,
@@ -118,4 +148,8 @@ def get_analytics_summary() -> dict:
         "queries_by_language": by_lang,
         "most_popular_regulation": most_popular_reg,
         "recent_questions_count": len(data["recent_questions"]),
+        "feedback_positive": feedback_positive,
+        "feedback_negative": feedback_negative,
+        "total_feedback": total_feedback,
+        "satisfaction_rate": satisfaction_rate,
     }

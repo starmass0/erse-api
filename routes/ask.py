@@ -4,7 +4,7 @@ import logging
 from models import AskRequest, AskResponse, Citation
 from services.retrieval import search_regulations
 from services.synthesis import synthesize_answer
-from services.analytics import track_query, get_analytics_summary
+from services.analytics import track_query, track_feedback, get_analytics_summary
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -100,3 +100,13 @@ async def ask_question(request: AskRequest):
 async def get_analytics():
     """Get usage analytics summary."""
     return get_analytics_summary()
+
+
+@router.post("/feedback")
+async def submit_feedback(feedback_type: str):
+    """Submit user feedback (yes/no)."""
+    if feedback_type not in ["yes", "no"]:
+        raise HTTPException(status_code=400, detail="Invalid feedback type. Use 'yes' or 'no'.")
+
+    track_feedback(feedback_type)
+    return {"status": "ok", "message": "Feedback recorded"}
